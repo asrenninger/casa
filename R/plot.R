@@ -128,29 +128,115 @@ local_ages %>%
 ##
 
 expectancy <- 
-  read_xlsx("data/hslepivotab1.xlsx", sheet = 5) %>%
+  read_xls("data/healthy.xls", skip = 10, sheet = 1) %>%
   clean_names()
 
 names(expectancy)
 
 ##
 
-expectancy %>%
-  separate(period, sep = "-", into = c("start", "end")) %>%
-#  mutate(start = as.numeric(start),
- #        end = as.numeric(paste("20", end, sep = ""))) %>%
-  mutate(year = end) %>%
-  filter(age_group == "65-69") %>%
-  filter(sex == "Male") %>%
-  filter(end == "11") %>%
-  select(year, code, proportion_of_life_spent_in_good_health_percent) %>%
+expectancy_spatially <- 
+  expectancy %>%
   left_join(authorities) %>%
   drop_na() %>%
-  st_as_sf() %>%
-  select(proportion_of_life_spent_in_good_health_percent) %>%
-  plot()
+  st_as_sf()
 
+##
 
+background <- 
+  authorities %>%
+  mutate(dissolve = 1) %>%
+  group_by(dissolve) %>%
+  summarise()
 
+##
 
+library(scico)
+
+##
+
+ggplot(data =
+         expectancy_spatially %>%
+         select(healthy_life_expectancy_for_females_2009_2013_years,
+                healthy_life_expectancy_for_males_2009_2013) %>%
+         gather(variable, value, healthy_life_expectancy_for_females_2009_2013_years:healthy_life_expectancy_for_males_2009_2013) %>%
+         mutate(name = case_when(variable == "healthy_life_expectancy_for_males_2009_2013" ~ "male",
+                                 variable == "healthy_life_expectancy_for_females_2009_2013_years" ~ "female")) %>%
+         select(variable, name, value, geometry)) +
+  geom_sf(data = background,
+          aes(), 
+          fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(aes(fill = value), 
+          colour = NA, size = 0) +
+  scale_fill_scico(palette = 'lajolla', direction = -1,
+                   guide = guide_continuous) +
+  facet_wrap(~ name) +
+  theme_map()
+
+##
+
+ggplot(data =
+         expectancy_spatially %>%
+         mutate(difference_male = life_expectancy_at_birth_for_males_2009_2013 - healthy_life_expectancy_for_males_2009_2013,
+                difference_female = life_expectancy_at_birth_for_females_2009_2013 - healthy_life_expectancy_for_females_2009_2013_years) %>%
+         select(difference_female, difference_male) %>%
+         gather(variable, value, difference_male:difference_female) %>%
+         mutate(name = case_when(variable == "difference_male" ~ "male",
+                                 variable == "difference_female" ~ "female")) %>%
+         select(variable, name, value, geometry)) +
+  geom_sf(data = background,
+          aes(), 
+          fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(aes(fill = value), 
+          colour = NA, size = 0) +
+  scale_fill_scico(palette = 'lajolla', direction = 1,
+                   guide = guide_continuous) +
+  facet_wrap(~ name) +
+  theme_map()
+
+##
+
+names(expectancy)
+
+## 
+
+library(magrittr)
+
+lm(healthy_life_expectancy_for_females_2009_2013_years ~ life_expectancy_at_birth_for_females_2009_2013, 
+   data = expectancy) %>%
+  summary() %>%
+  use_series("r.squared")
+
+lm(healthy_life_expectancy_for_males_2009_2013 ~ life_expectancy_at_birth_for_males_2009_2013, 
+   data = expectancy) %>%
+  summary() %>%
+  use_series("r.squared")
+
+##
+
+plot_expectancies <- 
+  ggplot(bind_rows(select(expectancy, 
+                          healthy_life_expectancy_for_females_2009_2013_years,
+                          life_expectancy_at_birth_for_females_2009_2013) %>%
+                     set_names(c("in good health", "at birth")) %>%
+                     mutate(class = "female"),
+                   select(expectancy, healthy_life_expectancy_for_males_2009_2013,
+                          life_expectancy_at_birth_for_males_2009_2013) %>%
+                     set_names(c("in good health", "at birth")) %>%
+                     mutate(class = "male")), 
+         aes(x = `at birth`, y = `in good health`, colour = class)) +
+  geom_point(alpha = 0.5, show.legend = FALSE) +
+  geom_smooth(method = lm, se = FALSE, fullrange = TRUE, linetype = 2, show.legend = FALSE) +
+  geom_text(aes(x = 75, y = 70, label = "r-squared = 0.88"), hjust = 0) +
+  geom_text(aes(x = 80, y = 50, label = "r-squared = 0.73"), hjust = 0) +
+  scale_colour_manual(values = c("#800026", "#081d58")) +
+  labs(title = "local authorities",
+       subtitle = "TWIN LIFE EXPECTANCIES") +
+  theme_ver()
+
+##
+
+ggsave(plot_expectancies, filename = "expectancies.png", height = 6, width = 6, dpi = 300)
+
+##
 
