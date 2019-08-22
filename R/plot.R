@@ -75,7 +75,7 @@ national_aging <-
   geom_bar(aes(y = population, x = upper, fill = group), stat = 'identity',
            show.legend = FALSE) +
   geom_text(aes(x = upper, y = 0, label = age_group), colour = '#ffffff') +
-  scale_fill_manual(values = c("#800026", "#081d58")) +
+  scale_fill_manual(values = c(scico(palette = "grayC", 10)[3], scico(palette = "grayC", 10)[10])) +
   scale_y_continuous(labels = abs, limits = max(national_ages$population, na.rm = TRUE) * c(-1, 1)) +
   scale_x_continuous(labels = c("", "", ""), breaks = c(25, 50, 75), limits = c(-1, 100)) +
   transition_states(year) +
@@ -175,7 +175,8 @@ ggplot(data =
 
 ##
 
-ggplot(data =
+map_differences <- 
+  ggplot(data =
          expectancy_spatially %>%
          mutate(difference_male = life_expectancy_at_birth_for_males_2009_2013 - healthy_life_expectancy_for_males_2009_2013,
                 difference_female = life_expectancy_at_birth_for_females_2009_2013 - healthy_life_expectancy_for_females_2009_2013_years) %>%
@@ -192,7 +193,13 @@ ggplot(data =
   scale_fill_scico(palette = 'lajolla', direction = 1,
                    guide = guide_continuous) +
   facet_wrap(~ name) +
+  labs(title = "local authorities",
+       subtitle = "DIFFERENCES WITH HEALTHSPAN AND LIFESPAN") +
   theme_map()
+
+##
+
+ggsave(map_differences, filename = "differences.png", height = 8, width = 8, dpi = 300)
 
 ##
 
@@ -201,6 +208,8 @@ names(expectancy)
 ## 
 
 library(magrittr)
+
+##
 
 lm(healthy_life_expectancy_for_females_2009_2013_years ~ life_expectancy_at_birth_for_females_2009_2013, 
    data = expectancy) %>%
@@ -229,7 +238,7 @@ plot_expectancies <-
   geom_smooth(method = lm, se = FALSE, fullrange = TRUE, linetype = 2, show.legend = FALSE) +
   geom_text(aes(x = 75, y = 70, label = "r-squared = 0.88"), hjust = 0) +
   geom_text(aes(x = 80, y = 50, label = "r-squared = 0.73"), hjust = 0) +
-  scale_colour_manual(values = c("#800026", "#081d58")) +
+  scale_colour_manual(values = c(scico(palette = "grayC", 10)[3], scico(palette = "grayC", 10)[10])) +
   labs(title = "local authorities",
        subtitle = "TWIN LIFE EXPECTANCIES") +
   theme_ver()
@@ -240,3 +249,91 @@ ggsave(plot_expectancies, filename = "expectancies.png", height = 6, width = 6, 
 
 ##
 
+scico_palette_show()
+
+##
+
+scico(palette = "grayC", 10)
+scico(palette = "lajolla", 10)
+
+##
+
+expectancy$code[1]
+
+area <- read_csv("data/ahahinputs.csv")
+
+glimpse(area)
+
+##
+
+crosswalk <- 
+  st_read("data/lsoa.geojson") %>%
+  st_drop_geometry() %>%
+  transmute(lsoa11 = lsoa01cd,
+            code = lad17cd) %>%
+  left_join(area) %>%
+  select(lsoa11:green900) %>%
+  group_by(code) %>%
+  summarise_if(is.numeric, mean, na.rm = TRUE) 
+
+##
+
+area_spatially <- 
+  crosswalk %>%
+  left_join(authorities) %>%
+  st_as_sf()
+
+##
+
+map_green <- 
+  ggplot(data =
+           area_spatially) +
+  geom_sf(data = background,
+          aes(), 
+          fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(aes(fill = green900), 
+          colour = NA, size = 0) +
+  scale_fill_scico(palette = 'lajolla', direction = -1,
+                   guide = guide_continuous) +
+  labs(title = "local authorities",
+       subtitle = "DIFFERENCES IN NATURAL AREAS") +
+  theme_map()
+
+##
+
+ggsave(map_green, filename = "green.png", height = 8, width = 8, dpi = 300)  
+
+##
+
+library(geogrid)
+library(sf)
+
+##
+
+par(mfrow = c(2, 3), mar = c(0, 0, 2, 0))
+
+for (i in 1:6) {
+  new_cells <- calculate_grid(shape = as(authorities, 'Spatial'), grid_type = "hexagonal", seed = i)
+  plot(new_cells, main = paste("Seed", i, sep = " "))
+}
+
+##
+
+new_cells_hex <- calculate_grid(shape = as(authorities, 'Spatial'), grid_type = "hexagonal", seed = 1)
+resulthex <- assign_polygons(as(authorities, 'Spatial'), new_cells_hex)
+
+##
+
+resulthex %>% 
+  st_as_sf() %>% 
+  select(code) %>%
+  st_write("hexgrid.geojson")
+
+##
+
+resulthex %>%
+  st_as_sf() %>%
+  select(code) %>%
+  left_join(crosswalk) %>%
+  mutate_if(is.numeric, ~ ntile(. , 10)) %>%
+  plot()
