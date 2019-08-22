@@ -15,16 +15,16 @@ national_ages <-
               replace_na(list("upper" = 94)) %>%
               mutate(upper = as.numeric(upper)) %>%
               select(upper, x2016:x2041) %>%
-              gather(year, population, x2016:x2041) %>%
+              gather(year, population, x2016:x2036) %>%
               mutate(population = population * -1, group = "male"),
-            read_xls("data/aging.xls", skip = 5, sheet = 2) %>%
+            read_xls("data/aging.xls", skip = 5, sheet = 3) %>%
               clean_names() %>%
               filter(area == "England" & age_group != "All ages") %>%
               separate(age_group, sep = "-", into = c("lower", "upper")) %>%
               replace_na(list("upper" = 94)) %>%
               mutate(upper = as.numeric(upper)) %>%
               select(upper, x2016:x2041) %>%
-              gather(year, population, x2016:x2041) %>%
+              gather(year, population, x2016:x2036) %>%
               mutate(group = "female"))
 
 ##
@@ -319,21 +319,66 @@ for (i in 1:6) {
 
 ##
 
-new_cells_hex <- calculate_grid(shape = as(authorities, 'Spatial'), grid_type = "hexagonal", seed = 1)
-resulthex <- assign_polygons(as(authorities, 'Spatial'), new_cells_hex)
+hexdata <- 
+  authorities %>%
+  filter(code %in% expectancy$code) %>%
+  as('Spatial')
+
+new_cells_hex <- calculate_grid(shape = hexdata, grid_type = "hexagonal", seed = 1)
+resulthex <- assign_polygons(hexdata, new_cells_hex)
 
 ##
 
 resulthex %>% 
   st_as_sf() %>% 
   select(code) %>%
-  st_write("hexgrid.geojson")
+  st_write("hexgrid_britain.geojson")
 
 ##
 
-resulthex %>%
+summary_variables <- 
+  resulthex %>%
   st_as_sf() %>%
   select(code) %>%
   left_join(crosswalk) %>%
-  mutate_if(is.numeric, ~ ntile(. , 10)) %>%
-  plot()
+  st_as_sf()
+
+##
+
+hexground <-
+  st_read("data/hexgrid.geojson") %>%
+  st_as_sf() %>%
+  mutate(dissolve = 1) %>%
+  group_by(dissolve) %>%
+  summarise() %>%
+  st_buffer(-0.5)
+  
+?st_buffer
+
+##
+
+map_summary <-
+  ggplot(data = 
+           summary_variables %>%
+           filter(code %in% expectancy$code) %>%
+           transmute(`general practicioners` = gpp_d, 
+                     `hospitals` = ed_d, 
+                     `dentists` = dent_d, 
+                     `pharmacies` = pharm_d) %>%
+           gather(variable, value, `general practicioners`:`pharmacies`)) +
+  geom_sf(data = hexground,
+          aes(), 
+          fill = NA, colour = '#000000', size = 0.25, alpha = 0.5) +
+  geom_sf(aes(fill = value), 
+          colour = NA, size = 0) +
+  scale_fill_scico(palette = 'lajolla', direction = 1,
+                   guide = guide_continuous,
+                   name = "distance to...") +
+  facet_wrap(~ variable) +
+  labs(title = "local authorities",
+       subtitle = "PREDICTORS OF ILL HEALTH") +
+  theme_map()
+
+##
+
+ggsave(map_summary, filename = "summary.png", height = 8, width = 8, dpi = 300)
