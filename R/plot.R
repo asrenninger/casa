@@ -625,6 +625,8 @@ left <-
   data_spatially %>%
   mutate(difference = ((difference_male + difference_female) / 2))
 
+
+
 coords <- 
   left %>%
   st_centroid() %>%
@@ -694,7 +696,7 @@ map_moran_difference <-
           aes(), fill = 'grey70', colour = NA, size = 0) +
   geom_sf(data = left,
           aes(fill = factor(ntile(difference, 5))), size = 0, colour = NA) +
-  scale_fill_manual(values = scico(palette = 'roma', 5),
+  scale_fill_manual(values = scico(palette = 'cork', 5),
                     labels = as.character(quantile(left$difference,
                                                    c(.1,.2,.4,.6,.8),na.rm = TRUE)),
                     name = "difference",
@@ -710,7 +712,7 @@ map_moran_i <-
           aes(), fill = 'grey70', colour = NA, size = 0) +
   geom_sf(data = left,
           aes(fill = factor(ntile(locali, 5))), size = 0, colour = NA) +
-  scale_fill_manual(values = scico(palette = 'roma', 5),
+  scale_fill_manual(values = scico(palette = 'cork', 5),
                     labels = str_sub(as.character(quantile(left$locali,
                                                            c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
                     name = "i value",
@@ -726,7 +728,7 @@ map_moran_p <-
           aes(), fill = 'grey70', colour = NA, size = 0) +
   geom_sf(data = left,
           aes(fill = factor(ntile(p_value, 5))), size = 0, colour = NA) +
-  scale_fill_manual(values = scico(palette = 'roma', 5),
+  scale_fill_manual(values = scico(palette = 'cork', 5),
                     labels = str_sub(as.character(quantile(left$p_value,
                                                    c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
                     name = "p value",
@@ -764,7 +766,7 @@ left_moran <-
 
 ##
 
-labels <- c("high-high", "low-Low")
+labels <- c("high-high", "low-low")
 
 ##
 
@@ -774,7 +776,7 @@ map_quads <-
           aes(), fill = 'grey70', colour = NA, size = 0) +
   geom_sf(data = left_moran,
           aes(fill = factor(quad_sig)), size = 0, colour = NA) +
-  scale_fill_manual(values = scico(palette = 'roma', 2),
+  scale_fill_manual(values = scico(palette = 'cork', 2),
                     name = "quadrants",
                     labels = labels,
                     guide = guide_discrete,
@@ -788,3 +790,137 @@ ggsave(map_quads, filename = "quadrants.png", height = 8, width = 8, dpi = 300)
 
 ##
 
+montecarlo <- moran.mc(left$difference, weights, nsim = 999)
+montecarlo 
+
+##
+
+ggplot(as.data.frame(montecarlo$res), aes(montecarlo$res)) + 
+  geom_histogram(binwidth = 0.01) +
+  geom_vline(aes(xintercept = 0.466), colour = "grey70",size = 1) +
+  scale_x_continuous(limits = c(-1, 1)) +
+  labs(title = "observed and permuted Moran's I",
+       subtitle = "I = 0.466 | P < 0.01",
+       x = "results",
+       y = "count") +
+  theme_ver()
+
+ggsave(filename = "montecarlo.png", height = 4, width = 6, dpi = 300)
+
+##
+
+results <- read_csv("data/gwrresults.csv")
+
+dim(results)
+dim(data_spatially)
+
+shape <- 
+  data_spatially %>%
+  filter(code != "E06000053") %>%
+  select(code, geometry)
+
+results_shape <-
+  results %>%
+  bind_cols(shape) %>%
+  st_as_sf() %>%
+  clean_names()
+
+##
+
+map_deprivation <- 
+  ggplot() + 
+  geom_sf(data = background,
+          aes(), fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(data = results_shape,
+          aes(fill = factor(ntile(depriv_coef, 5))), size = 0.01, colour = 'gray70') +
+  scale_fill_manual(values = scico(palette = 'oslo', 5),
+                    labels = str_sub(as.character(quantile(results_shape$depriv_coef,
+                                                           c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
+                    name = "coefficent",
+                    guide = guide_discrete) +
+  labs(title = "deprivation") +
+  theme_map_legend()  
+
+map_air <- 
+  ggplot() + 
+  geom_sf(data = background,
+          aes(), fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(data = results_shape,
+          aes(fill = factor(ntile(airpol_coef, 5))), size = 0.01, colour = 'gray70') +
+  scale_fill_manual(values = scico(palette = 'oslo', 5),
+                    labels = str_sub(as.character(quantile(results_shape$airpol_coef,
+                                                           c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
+                    name = "coefficent",
+                    guide = guide_discrete) +
+  labs(title = "air pollution") +
+  theme_map_legend() 
+
+map_lifestyle <- 
+  ggplot() + 
+  geom_sf(data = background,
+          aes(), fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(data = results_shape,
+          aes(fill = factor(ntile(lifest_coef, 5))), size = 0.01, colour = 'gray70') +
+  scale_fill_manual(values = scico(palette = 'oslo', 5, direction = -1),
+                    labels = str_sub(as.character(quantile(results_shape$lifest_coef,
+                                                           c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
+                    name = "coefficent",
+                    guide = guide_discrete) +
+  labs(title = "lifestyle distances") +
+  theme_map_legend() 
+
+map_unemployment <- 
+  ggplot() + 
+  geom_sf(data = background,
+          aes(), fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(data = results_shape,
+          aes(fill = factor(ntile(unempl_coef, 5))), size = 0.01, colour = 'gray70') +
+  scale_fill_manual(values = scico(palette = 'oslo', 5),
+                    labels = str_sub(as.character(quantile(results_shape$unempl_coef,
+                                                           c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
+                    name = "coefficent",
+                    guide = guide_discrete) +
+  labs(title = "unemployment") +
+  theme_map_legend()
+
+map_health <- 
+  ggplot() + 
+  geom_sf(data = background,
+          aes(), fill = 'grey70', colour = NA, size = 0) +
+  geom_sf(data = results_shape,
+          aes(fill = factor(ntile(hlthserv_coef, 5))), size = 0.01, colour = 'gray70') +
+  scale_fill_manual(values = scico(palette = 'oslo', 5),
+                    labels = str_sub(as.character(quantile(results_shape$hlthserv_coef,
+                                                           c(.1,.2,.4,.6,.8),na.rm = TRUE)), 1, 4),
+                    name = "coefficent",
+                    guide = guide_discrete) +
+  labs(title = "health services") +
+  theme_map_legend()
+
+##
+
+results <- grid.arrange(map_lifestyle, map_health, map_unemployment, map_deprivation, ncol = 2)
+
+ggsave(results, filename = "results.png", height = 12, width = 12, dpi = 300)
+
+ggsave(map_air, filename = "pollution.png", height = 8, width = 8, dpi = 300)
+
+##
+
+regression <- 
+  left %>%
+  transmute(difference = difference,
+            agestand_mortality = agestand_mortality,
+            ffood_d = ffood_d,
+            pubs2_d = pubs2_d,
+            gpp_d = gpp_d,
+            total_population_2011 = total_population_2011,
+            density = total_population_2011 / (st_areashape / (1000 * 1000)),
+            income = income_2011,
+            rururban = urban_city_and_town_population_2011 / total_population_2011,
+            lives_alone = older_people_living_alone,
+            unemployment = unemployment,
+            no2 = no2,
+            pm10 = pm10, 
+            parks = green900) %>%
+  mutate_if(is.numeric, scale)
