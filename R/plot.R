@@ -1,9 +1,6 @@
 library(tidyverse)
-library(janitor)
-
-##
-
 library(readxl)
+library(janitor)
 
 ##
 
@@ -249,18 +246,9 @@ ggsave(plot_expectancies, filename = "expectancies.png", height = 6, width = 6, 
 
 ##
 
-scico_palette_show()
-
-##
-
-scico(palette = "grayC", 10)
-scico(palette = "lajolla", 10)
-
-##
-
-expectancy$code[1]
-
 area <- read_csv("data/ahahinputs.csv")
+
+##
 
 glimpse(area)
 
@@ -332,7 +320,7 @@ resulthex <- assign_polygons(hexdata, new_cells_hex)
 resulthex %>% 
   st_as_sf() %>% 
   select(code) %>%
-  st_write("hexgrid_britain.geojson")
+  st_write("hexgrid_britain.shp")
 
 ##
 
@@ -340,7 +328,7 @@ summary_variables <-
   resulthex %>%
   st_as_sf() %>%
   select(code) %>%
-  left_join(crosswalk) %>%
+  left_join(area) %>%
   st_as_sf()
 
 ##
@@ -351,9 +339,7 @@ hexground <-
   mutate(dissolve = 1) %>%
   group_by(dissolve) %>%
   summarise() %>%
-  st_buffer(-0.5)
-  
-?st_buffer
+  st_buffer(0.5)
 
 ##
 
@@ -402,7 +388,6 @@ rururb <-
   clean_names() %>%
   rename(code = lad11cd) %>%
   select(code, total_rural_population_2011:total_population_2011, ruc11, broad_ruc11) %>%
-  select()
   rename(class = ruc11,
          class_broad = broad_ruc11)
 
@@ -616,7 +601,6 @@ pollution_joined <-
 library(maptools)
 library(rgdal)
 library(spdep)
-library(tidyverse)
 library(gridExtra)
 
 #coordintates
@@ -624,8 +608,6 @@ library(gridExtra)
 left <- 
   data_spatially %>%
   mutate(difference = ((difference_male + difference_female) / 2))
-
-
 
 coords <- 
   left %>%
@@ -643,8 +625,6 @@ left <-
          variance = Var.Ii,
          deviation = Z.Ii,
          p_value = `Pr(z > 0)`)
-
-scico_palette_show()
 
 ##
 
@@ -789,6 +769,7 @@ map_quads <-
 ggsave(map_quads, filename = "quadrants.png", height = 8, width = 8, dpi = 300)
 
 ##
+
 
 montecarlo <- moran.mc(left$difference, weights, nsim = 999)
 montecarlo 
