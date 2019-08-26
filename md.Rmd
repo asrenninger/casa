@@ -1,5 +1,10 @@
 ---
 title: "SPATIAL ANALYSIS IN R"
+knit: (function(input_file, encoding) {
+  out_dir <- 'docs';
+  rmarkdown::render(input_file,
+ encoding=encoding,
+ output_file=file.path(dirname(input_file), out_dir, 'index.html'))})
 subtitle: "with applications for Grand Challenges"
 author: "andrew renninger"
 date: "8/23/2019"
@@ -26,7 +31,7 @@ The United Kingdom, as part of its set of Grand Challenges missions, is seeking 
 
 Independence could mean any number of things, but perhaps an easy starting point is health: a healthy individual is likely more able than an unhealthy one. Thus to approach the challenge, we could start by finding out what is the relationship between the difference in healthspan and lifespan and socio-spatial conditions---that is, what circumstances surround varitions in poor health. What variables associate with a life that is both *healthy* and *long*, or at the very least healthy for its duration, compared to lives that are long but unhealthy or simply short? With a better understanding of these, we can allign policies to suit the needs of an ageing society.
 
-A technique called geographically weighted regression can shed light on spatial variations in the phenomenon. How do correlates of poor health vary in their relation to it across geographies. 
+A technique called geographically weighted regression can shed light on spatial variations in the phenomenon. How do correlates of poor health vary in their relation to it across geographies?
 
 ## you and what data? 
 
@@ -728,7 +733,7 @@ resulthex <- assign_polygons(hexdata, new_cells_hex)
 
 ``` {r include = FALSE}
 
-resulthex <- st_read("hexgrid_britain.shp")
+resulthex <- st_read("data/hexgrid_britain.shp")
 
 ```
 
